@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"log"
 	"net/http"
 	"os"
@@ -11,8 +12,8 @@ import (
 	"github.com/labstack/echo"
 )
 
-// Albums Struct slice
-type Albums []struct {
+// Album Struct slice
+type Album struct {
 	ID              string `json:"id"`
 	AlbumTitle      string `json:"albumTitle"`
 	AlbumTitleImage string `json:"albumTitleImage"`
@@ -37,9 +38,19 @@ func toInt(s string) int  {
 	return i 
 }
 
-var configData Albums
+func saveToHardDrive(filename string, v interface{}) error {
+	// file, err := os.OpenFile(filename, os.O_CREATE, os.ModePerm)
+	// if err != nil {
+	// 	log.Fatal(err)
+	// }
+	// defer file.Close()  
+	bs, err := json.MarshalIndent(v, "", " ") 
+	ioutil.WriteFile(filename, bs, 0666)
+	return err	
+}
 
-func loadData(filename string) (Albums, error) {
+func loadData(filename string) ([]Album, error) {
+	configData := []Album{}
 	configFile, err := os.Open(filename)	
 	defer configFile.Close() 
 	if err != nil {
@@ -62,12 +73,26 @@ func sendData(c echo.Context) error {
 
 func addNewAlbum(c echo.Context) error {
 	db, _ := loadData("database.json")
-
+	defer c.Request().Body.Close()
+	// Create new empty album
+	a := Album{}
+	// Get data posted from client 
+	err := json.NewDecoder(c.Request().Body).Decode(&a)
+	if err != nil {
+		log.Fatal(err)
+	}
 	// define new ID
 	newID := strconv.Itoa(toInt(db[len(db)-1].ID)+ 1)
 
-	// fmt.Printf("db type is %T \n It value is %+v", db, db)
-	fmt.Printf("New id is %s, type %T", newID, newID)
+	a.ID = newID
+
+	newDB := append(db, a)
+
+	// save new album
+	err = saveToHardDrive("database.json", newDB)
+	if err != nil {
+		log.Fatal(err)
+	}
 	return c.String(http.StatusOK ,"We got your album") 
 }
 
