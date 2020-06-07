@@ -83,21 +83,52 @@ func addNewAlbum(c echo.Context) error {
 	}
 	// define new ID
 	newID := strconv.Itoa(toInt(db[len(db)-1].ID)+ 1)
-
 	a.ID = newID
 
 	newDB := append(db, a)
 
-	// save new album
+	// Save new album
 	err = saveToHardDrive("database.json", newDB)
 	if err != nil {
 		log.Fatal(err)
 	}
-	return c.String(http.StatusOK ,"We got your album") 
+	return c.String(http.StatusOK ,"We got your album!") 
 }
 
 func addNewImage(c echo.Context) error {
-	return c.String(http.StatusOK ,"") 	
+	db, _ := loadData("database.json")
+	defer c.Request().Body.Close()
+	// Album ID and URL
+	albumID := c.QueryParam("albumID")
+	url := c.QueryParam("url")
+	// Create new default Image
+	newImg := AlbumImages{ImageHearts: "0", VoteStatus: "0"}
+
+	// Define selected album images
+	var selectedAlbumImages []AlbumImages
+	var selectedIndex int
+	for i, v := range db {
+		if v.ID == albumID {
+			selectedAlbumImages = v.AlbumImages
+			selectedIndex = i
+		}
+	} 	
+
+	// Define new image ID
+	var newImgID string
+	newImgID = strconv.Itoa(toInt(selectedAlbumImages[len(selectedAlbumImages)-1].PhotoID) + 1)
+
+	newImg.PhotoID = newImgID
+	newImg.Image = url
+	selectedAlbumImages = append(selectedAlbumImages, newImg)
+	db[selectedIndex].AlbumImages = selectedAlbumImages
+
+	// Save new image
+	err := saveToHardDrive("database.json", db)
+	if err != nil {
+		log.Fatal(err)
+	}
+	return c.String(http.StatusOK ,"We got your image!") 
 }
 func updateAlbum(c echo.Context) error {
 	return c.String(http.StatusOK ,"") 		
@@ -114,9 +145,12 @@ func deleteImage(c echo.Context) error {
 func main()  {
 	e := echo.New()
 
+	// http://localhost:8001/data
 	e.GET("/data", sendData)
+	// http://localhost:8001/newAlbum (with json body of the album)
 	e.POST("/newAlbum", addNewAlbum)
-	e.POST("/newImage/:albumID", addNewImage)
+	// http://localhost:8001/newImage?albumID=1&url=http://lorempixel.com/640/480/city
+	e.POST("/newImage", addNewImage)
 	e.PUT("/updateAlbum/:albumID", updateAlbum)
 	e.PUT("/updateImage/:albumID/:imageID", updateImage)
 	e.DELETE("/deleteAlbum/:albumID", deleteAlbum)
