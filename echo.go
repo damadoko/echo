@@ -111,6 +111,7 @@ func addNewImage(c echo.Context) error {
 		if v.ID == albumID {
 			selectedAlbumImages = v.AlbumImages
 			selectedIndex = i
+			break
 		}
 	} 	
 
@@ -139,7 +140,6 @@ func updateAlbum(c echo.Context) error {
 	if err != nil {
 		log.Fatal(err)
 	}
-	log.Printf("User's json decoded: %+v", a )
 	// Detect albumID must be update
 	albumID := c.QueryParam("albumID")
 	a.ID = albumID
@@ -148,7 +148,6 @@ func updateAlbum(c echo.Context) error {
 	for i, album:= range db {
 		if album.ID == albumID {
 			a.AlbumImages = album.AlbumImages
-			log.Printf("User's json decoded: %+v", a )
 			dbRight := db[i+1:]
 			db = append(db[:i], a) 
 			db = append(db, dbRight...)	
@@ -161,9 +160,44 @@ func updateAlbum(c echo.Context) error {
 	
 	return c.String(http.StatusOK ,"Album updated") 		
 }
+
 func updateImage(c echo.Context) error {
-	return c.String(http.StatusOK ,"") 		
+	db, _ := loadData("database.json")
+	defer c.Request().Body.Close()
+	// Create new empty image
+	albumImg := AlbumImages{}
+	// Get data posted from client 
+	err := json.NewDecoder(c.Request().Body).Decode(&albumImg)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	// Detect albumID, imageID must be update
+	albumID := c.QueryParam("albumID")
+	imageID := c.QueryParam("imageID")
+	albumImg.PhotoID = imageID
+	
+ // Update image
+	for albumIndex, a:= range db {
+		if a.ID == albumID {
+			for imageIndex, img:= range a.AlbumImages {
+				if img.PhotoID == imageID {
+					imgSliceRight := db[albumIndex].AlbumImages[imageIndex+1:]
+					db[albumIndex].AlbumImages = append(db[albumIndex].AlbumImages[:imageIndex], albumImg) 
+					db[albumIndex].AlbumImages = append(db[albumIndex].AlbumImages, imgSliceRight...) 
+					break
+				}
+			}
+			break
+		}
+	}
+
+	// Save updated image
+	saveToHardDrive("database.json", db)
+
+	return c.String(http.StatusOK ,"Image updated") 		
 }
+
 func deleteAlbum(c echo.Context) error {
 	db, _ := loadData("database.json")
 	// Detect albumID must be delete
@@ -197,6 +231,7 @@ func deleteImage(c echo.Context) error {
 					break
 				}
 			}
+			break
 		}
 	}
 
@@ -210,16 +245,24 @@ func main()  {
 
 	// http://localhost:8001/data
 	e.GET("/data", sendData)
+
 	// http://localhost:8001/newAlbum (with json body of the album)
 	e.POST("/newAlbum", addNewAlbum)
+
 	// http://localhost:8001/newImage?albumID=1&url=http://lorempixel.com/640/480/city
 	e.POST("/newImage", addNewImage)
+	
 	// http://localhost:8001/updateAlbum?albumID=1 (with json body of the updated album 
-		// include: albumTitle, albumTitleImage,albumStar)
+	// include: albumTitle, albumTitleImage,albumStar)
 	e.PUT("/updateAlbum", updateAlbum)
-	e.PUT("/updateImage/:albumID/:imageID", updateImage)
-		// http://localhost:8001/deleteAlbum?albumID=1
+	
+	// http://localhost:8001/updateImage?albumID=1&imageID=1 (with json body of the updated image 
+	// include: image, imageHearts, voteStatus)
+	e.PUT("/updateImage", updateImage)
+	
+	// http://localhost:8001/deleteAlbum?albumID=1
 	e.DELETE("/deleteAlbum", deleteAlbum)
+	
 	// http://localhost:8001/deleteImage?albumID=1&imageID=3
 	e.DELETE("/deleteImage", deleteImage)
 
