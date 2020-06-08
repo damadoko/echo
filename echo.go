@@ -162,11 +162,11 @@ func deleteImage(c echo.Context) error {
 	albumID := c.QueryParam("albumID")
 	imageID := c.QueryParam("imageID")
 	// Delete image
-	for _, a:= range db {
+	for albumIndex, a:= range db {
 		if a.ID == albumID {
-			for i, img:= range a.AlbumImages {
+			for imageIndex, img:= range a.AlbumImages {
 				if img.PhotoID == imageID {
-					a.AlbumImages = append(a.AlbumImages[:i], a.AlbumImages[i + 1:]...) 
+					db[albumIndex].AlbumImages = append(db[albumIndex].AlbumImages[:imageIndex], db[albumIndex].AlbumImages[imageIndex + 1:]...) 
 				}
 			}
 		}
