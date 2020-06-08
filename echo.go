@@ -98,7 +98,6 @@ func addNewAlbum(c echo.Context) error {
 
 func addNewImage(c echo.Context) error {
 	db, _ := loadData("database.json")
-	defer c.Request().Body.Close()
 	// Album ID and URL
 	albumID := c.QueryParam("albumID")
 	url := c.QueryParam("url")
@@ -140,7 +139,6 @@ func updateImage(c echo.Context) error {
 }
 func deleteAlbum(c echo.Context) error {
 	db, _ := loadData("database.json")
-	defer c.Request().Body.Close()
 	// Detect albumID must be delete
 	albumID := c.QueryParam("albumID")
 	// Delete album
@@ -157,8 +155,29 @@ func deleteAlbum(c echo.Context) error {
 	}
 	return c.String(http.StatusOK ,"Album deleted!") 
 }
+
 func deleteImage(c echo.Context) error {
-	return c.String(http.StatusOK ,"") 		
+	db, _ := loadData("database.json")
+	// Detect albumID, imageID must be delete
+	albumID := c.QueryParam("albumID")
+	imageID := c.QueryParam("imageID")
+	// Delete image
+	for _, a:= range db {
+		if a.ID == albumID {
+			for i, img:= range a.AlbumImages {
+				if img.PhotoID == imageID {
+					a.AlbumImages = append(a.AlbumImages[:i], a.AlbumImages[i + 1:]...) 
+				}
+			}
+		}
+	}
+
+	// Save updated albums
+	err := saveToHardDrive("database.json", db)
+	if err != nil {
+		log.Fatal(err)
+	}
+	return c.String(http.StatusOK ,"Image deleted!") 
 }
 func main()  {
 	e := echo.New()
@@ -173,8 +192,8 @@ func main()  {
 	e.PUT("/updateImage/:albumID/:imageID", updateImage)
 		// http://localhost:8001/deleteAlbum?albumID=1
 	e.DELETE("/deleteAlbum", deleteAlbum)
-
-	e.DELETE("/deleteImage/:albumID/:imageID", deleteImage)
+	// http://localhost:8001/deleteImage?albumID=1&imageID=3
+	e.DELETE("/deleteImage", deleteImage)
 
 	e.Start(":8001")
 }
