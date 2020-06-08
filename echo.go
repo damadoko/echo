@@ -12,6 +12,10 @@ import (
 	"github.com/labstack/echo"
 )
 
+// albumStar = 0 => Have this user bookmark this album?
+// imageHearts => likes number of user
+// voteStatus => Have this user like this image?
+
 // Album Struct slice
 type Album struct {
 	ID              string `json:"id"`
@@ -29,6 +33,7 @@ type AlbumImages struct {
 	VoteStatus  string `json:"voteStatus"`	
 }
 
+// ------------------- Helper function group -------------------
 func toInt(s string) int  {
 	i, err := strconv.Atoi(s)
 	if err != nil {
@@ -38,15 +43,12 @@ func toInt(s string) int  {
 	return i 
 }
 
-func saveToHardDrive(filename string, v interface{}) error {
-	// file, err := os.OpenFile(filename, os.O_CREATE, os.ModePerm)
-	// if err != nil {
-	// 	log.Fatal(err)
-	// }
-	// defer file.Close()  
+func saveToHardDrive(filename string, v interface{}) {
 	bs, err := json.MarshalIndent(v, "", " ") 
 	ioutil.WriteFile(filename, bs, 0666)
-	return err	
+	if err != nil {
+		log.Fatal(err)
+	}
 }
 
 func loadData(filename string) ([]Album, error) {
@@ -64,6 +66,7 @@ func loadData(filename string) ([]Album, error) {
 	return configData, err
 }
 
+// ------------------- Handler function group -------------------
 func sendData(c echo.Context) error {
 		//Read data from database 
 		db, _ := loadData("database.json") 
@@ -71,7 +74,6 @@ func sendData(c echo.Context) error {
 		return c.JSON(http.StatusOK, db )
 }
 
-// Some handler function
 func addNewAlbum(c echo.Context) error {
 	db, _ := loadData("database.json")
 	defer c.Request().Body.Close()
@@ -89,10 +91,8 @@ func addNewAlbum(c echo.Context) error {
 	newDB := append(db, a)
 
 	// Save new albums
-	err = saveToHardDrive("database.json", newDB)
-	if err != nil {
-		log.Fatal(err)
-	}
+	saveToHardDrive("database.json", newDB)
+	
 	return c.String(http.StatusOK ,"We got your album!") 
 }
 
@@ -124,15 +124,42 @@ func addNewImage(c echo.Context) error {
 	db[selectedIndex].AlbumImages = selectedAlbumImages
 
 	// Save new image
-	err := saveToHardDrive("database.json", db)
-	if err != nil {
-		log.Fatal(err)
-	}
+	saveToHardDrive("database.json", db)
+	
 	return c.String(http.StatusOK ,"We got your image!") 
 }
 
 func updateAlbum(c echo.Context) error {
-	return c.String(http.StatusOK ,"") 		
+ db, _ := loadData("database.json")
+	defer c.Request().Body.Close()
+	// Create new empty album
+	a := Album{}
+	// Get data posted from client 
+	err := json.NewDecoder(c.Request().Body).Decode(&a)
+	if err != nil {
+		log.Fatal(err)
+	}
+	log.Printf("User's json decoded: %+v", a )
+	// Detect albumID must be update
+	albumID := c.QueryParam("albumID")
+	a.ID = albumID
+	
+	// Update album
+	for i, album:= range db {
+		if album.ID == albumID {
+			a.AlbumImages = album.AlbumImages
+			log.Printf("User's json decoded: %+v", a )
+			dbRight := db[i+1:]
+			db = append(db[:i], a) 
+			db = append(db, dbRight...)	
+			break
+		}
+	}
+
+	// Save updated albums
+	saveToHardDrive("database.json", db)
+	
+	return c.String(http.StatusOK ,"Album updated") 		
 }
 func updateImage(c echo.Context) error {
 	return c.String(http.StatusOK ,"") 		
@@ -141,18 +168,18 @@ func deleteAlbum(c echo.Context) error {
 	db, _ := loadData("database.json")
 	// Detect albumID must be delete
 	albumID := c.QueryParam("albumID")
+
 	// Delete album
 	for i, a:= range db {
 		if a.ID == albumID {
 			db = append(db[:i], db[i+1:]...) 
+			break
 		}
 	}
 
 	// Save updated albums
-	err := saveToHardDrive("database.json", db)
-	if err != nil {
-		log.Fatal(err)
-	}
+	saveToHardDrive("database.json", db)
+	
 	return c.String(http.StatusOK ,"Album deleted!") 
 }
 
@@ -167,16 +194,15 @@ func deleteImage(c echo.Context) error {
 			for imageIndex, img:= range a.AlbumImages {
 				if img.PhotoID == imageID {
 					db[albumIndex].AlbumImages = append(db[albumIndex].AlbumImages[:imageIndex], db[albumIndex].AlbumImages[imageIndex + 1:]...) 
+					break
 				}
 			}
 		}
 	}
 
 	// Save updated albums
-	err := saveToHardDrive("database.json", db)
-	if err != nil {
-		log.Fatal(err)
-	}
+	saveToHardDrive("database.json", db)
+	
 	return c.String(http.StatusOK ,"Image deleted!") 
 }
 func main()  {
@@ -188,7 +214,9 @@ func main()  {
 	e.POST("/newAlbum", addNewAlbum)
 	// http://localhost:8001/newImage?albumID=1&url=http://lorempixel.com/640/480/city
 	e.POST("/newImage", addNewImage)
-	e.PUT("/updateAlbum/:albumID", updateAlbum)
+	// http://localhost:8001/updateAlbum?albumID=1 (with json body of the updated album 
+		// include: albumTitle, albumTitleImage,albumStar)
+	e.PUT("/updateAlbum", updateAlbum)
 	e.PUT("/updateImage/:albumID/:imageID", updateImage)
 		// http://localhost:8001/deleteAlbum?albumID=1
 	e.DELETE("/deleteAlbum", deleteAlbum)

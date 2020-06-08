@@ -1,9 +1,9 @@
 [
  {
   "id": "1",
-  "albumTitle": "Dynamic Marketing Facilitator",
+  "albumTitle": "This is a test for album update!",
   "albumTitleImage": "http://lorempixel.com/640/480/city",
-  "albumStar": "1",
+  "albumStar": "0",
   "albumImages": [
    {
     "photoID": "0",
