@@ -25,7 +25,7 @@ type (
 	}
 	// ClientRequest store request from client
 	ClientRequest struct {
-		Type   string `json:"type"` // type: add, delete, clear, changeFilter, 
+		Type   string `json:"type"` // type: add, delete, clear, changeFilter, setComplete 
 		ID     int    `json:"id,omitempty"`
 		Filter string `json:"filter,omitempty"`
 		Todo   Todo   `json:"todo,omitempty"`
@@ -65,18 +65,18 @@ func handler(w http.ResponseWriter, r *http.Request) {
 		case "add":
 			clientReq.Todo.ID = createID(updatedState)
 			updatedState.Todos = append(updatedState.Todos, clientReq.Todo)	
-		
+
 		case "delete":
-			for i, t := range updatedState.Todos {
-				if t.ID == clientReq.ID {
-					updatedState.Todos = append(updatedState.Todos[:i], updatedState.Todos[i+1:0]...)
-				}
-			}	
+			updatedState.deleteTodo(clientReq.ID)
 			
 		case "clear":
-			updatedState.Todos = clearTodo(updatedState)
-			
-			
+			updatedState.clearTodo()
+		case "changeFilter":
+			updatedState.Filter = clientReq.Filter	
+		case "setComplete":
+			updatedState.toggleComplete(clientReq.ID)
+
+
 			*clientResp = updatedState
 		}
 		if err := conn.WriteJSON(clientResp); err != nil {

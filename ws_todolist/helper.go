@@ -8,7 +8,15 @@ func createID(c ClientResponse) int {
 	return 0
 }
 
-func clearTodo(c ClientResponse) []Todo {
+func (c ClientResponse) deleteTodo(id int)  {
+	for i, t := range c.Todos {
+		if t.ID == id {
+			c.Todos = append(c.Todos[:i], c.Todos[i+1:0]...)
+		}
+	}	
+}
+
+func (c ClientResponse) clearTodo() {
 	j := 0
 			for _, t := range c.Todos {
 				if (t.Completed) {
@@ -16,5 +24,13 @@ func clearTodo(c ClientResponse) []Todo {
 					j++
 				}
 			}
-			return c.Todos[:j]
+			c.Todos = c.Todos[:j]
+}
+
+func (c ClientResponse) toggleComplete(id int)  {
+	for i, t := range c.Todos {
+		if t.ID == id {
+			c.Todos[i].Completed = !c.Todos[i].Completed
+		}
+	}	
 }
